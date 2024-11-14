@@ -39,15 +39,69 @@ class Receita:
         self.data_receita = data_receita
         self.descricao = descricao
 
+
 @app.route('/')
 def index():
     cursor = con.cursor()
+
+    # Buscar as despesas e receitas para exibição
     cursor.execute("SELECT ID_DESPESA, NOME, VALOR, DATA_DESPESA, DESCRICAO FROM DESPESA")
     despesas = cursor.fetchall()
     cursor.execute("SELECT ID_RECEITA, NOME, VALOR, DATA_RECEITA, DESCRICAO FROM RECEITA")
     receitas = cursor.fetchall()
+
+    # Variáveis para os totais
+    total_receita = 0
+    total_despesa = 0
+
+    # Verifique se o usuário está logado
+    if 'id_usuario' not in session:
+        flash('Você precisa estar logado no sistema.')
+        return redirect(url_for('login'))
+
+    id_usuario = session['id_usuario']
+
+    # Logs para depuração
+    print(f"ID Usuário na sessão: {id_usuario}")
+
+    # Cria um novo cursor para calcular os totais
+    try:
+        # Consulta para somar receitas
+        cursor.execute('SELECT coalesce(VALOR, 0) FROM RECEITA WHERE id_usuario = ?', (id_usuario,))
+        receitas_db = cursor.fetchall()  # Obtém todos os valores de receita
+        print(f"Valores das receitas: {receitas_db}")
+
+        for row in receitas_db:
+            total_receita += row[0]
+
+        # Consulta para somar despesas
+        cursor.execute('SELECT coalesce(VALOR, 0) FROM DESPESA WHERE id_usuario = ?', (id_usuario,))
+        despesas_db = cursor.fetchall()  # Obtém todos os valores de despesa
+        print(f"Valores das despesas: {despesas_db}")
+
+        for row in despesas_db:
+            total_despesa += row[0]
+
+        total_perda_lucro = total_receita - total_despesa
+
+    except Exception as e:
+        total_receita = 0
+        total_despesa = 0
+        total_perda_lucro = 0
+        print(f"Erro ao buscar totais: {str(e)}")
+        print(f"Tipo do erro: {type(e)}")
+
+    # Fecha o cursor após as operações
     cursor.close()
-    return render_template('index.html', despesas=despesas, receitas=receitas)
+
+    # Formata os totais para exibição
+    total_receita = f"{total_receita:.2f}"
+    total_despesa = f"{total_despesa:.2f}"
+    total_perda_lucro = f"{total_perda_lucro:.2f}"
+
+    # Renderiza o template com os valores calculados
+    return render_template('index.html', despesas=despesas, receitas=receitas, total_receita=total_receita, total_despesa=total_despesa, total_perda_lucro=total_perda_lucro)
+
 
 @app.route('/cadastroDespesa')
 def cadastroDespesa():
@@ -184,55 +238,12 @@ def deletarReceita(id):
         flash('Erro ao excluir receita.', 'error')
     finally:
         cursor.close()
-        return redirect(url_for('index'))  # Corrigido aqui
-
-@app.route('/inicio', methods=['GET'])
-def inicio():
-    total_receita = 0
-    total_despesa = 0
-    total_perda_lucro = 0  # Inicialize a variável aqui
-
-    if 'id_usuario' not in session:
-        flash('Você precisa estar logado no sistema.')
-        return redirect(url_for('login'))
-
-    id_usuario = session['id_usuario']
-
-    cursor = con.cursor()
-    try:
-        cursor.execute('SELECT coalesce(VALOR,0) FROM RECEITA WHERE id_usuario = ?', (id_usuario,))
-        for row in cursor.fetchall():
-            total_receita += row[0]
-
-        cursor.execute('SELECT coalesce(VALOR,0) FROM DESPESA WHERE id_usuario = ?', (id_usuario,))
-        for row in cursor.fetchall():
-            total_despesa += row[0]
-
-        total_perda_lucro = total_receita - total_despesa  # Calcule o total_perda_lucro
-
-    except Exception as e:
-        total_receita = 0
-        total_despesa = 0
-        total_perda_lucro = 0  # Em caso de erro, garanta que o valor de total_perda_lucro seja 0
-        print(f"Erro ao buscar total_receita: {str(e)}")
-        print(f"Tipo do erro: {type(e)}")
-
-    finally:
-        cursor.close()
-
-    # Formate as variáveis para exibição
-    total_receita = f"{total_receita:.2f}"
-    total_despesa = f"{total_despesa:.2f}"
-    total_perda_lucro = f"{total_perda_lucro:.2f}"
-
-    return render_template('index.html', total_receita=total_receita, total_despesa=total_despesa, total_perda_lucro=total_perda_lucro)
-
+        return redirect(url_for('index'))
 
 @app.route('/cria_usuario', methods=['GET'])
 def cria_usuario():
     return render_template('cadastro.html')
 
-# Rota para adicionar usuário
 @app.route('/adiciona_usuario', methods=['POST'])
 def adiciona_usuario():
     data = request.form
@@ -255,7 +266,6 @@ def adiciona_usuario():
     flash('Usuario adicionado com sucesso!')
     return redirect(url_for('login.html'))
 
-# Rota de Login
 @app.route('/login.html', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -267,21 +277,20 @@ def login():
             cursor.execute("SELECT id_usuario,nome FROM Usuario WHERE email = ? AND senha = ?", (email, senha,))
             usuario = cursor.fetchone()
         except Exception as e:
-            flash(f'Erro ao acessar o banco de dados: {e}')  # Mensagem de erro para o usuário
-            return redirect(url_for('login'))  # Redireciona de volta ao login
+            flash(f'Erro ao acessar o banco de dados: {e}')
+            return redirect(url_for('login'))
         finally:
             cursor.close()
 
         if usuario:
-            session['id_usuario'] = usuario[0]  # Armazena o ID do usuário na sessão
-            session['nome'] = usuario[1] #nome do mané
-            return redirect(url_for('inicio'))
+            session['id_usuario'] = usuario[0]
+            session['nome'] = usuario[1]
+            return redirect(url_for('index'))
         else:
             flash('Email ou senha incorretos!')
 
     return render_template('login.html')
 
-# Rota de Logout
 @app.route('/logout')
 def logout():
     session.pop('id_usuario', None)

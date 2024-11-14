@@ -280,18 +280,20 @@
             <br><br>    
          </section>
         <!-- Fim da seção de direcionamento para o cadastro de receitas -->
-<div class="dashboard">
-            <div class="card">
-                <h2>Total de Receitas</h2>
-                <p class="total">R$ {{ total_receita }}</p>
-            </div>
-            <div class="card">
-                <h2>Total de Despesas</h2>
-                <p class="total">R$ {{ total_despesa }}</p>
-            </div>
-            <div class="card">
-                <h2>P/L Total de Carteira</h2>
-                <p class="total">R$ {{ total_perda_lucro }}</p>
+        <div class="secao-total">
+            <div class="cards">
+              <div class="card red">
+                  <h2>Total de Receitas</h2>
+                <p class="tip">R$ {{ total_receita }}</p>
+              </div>
+              <div class="card blue">
+                  <h2>Total de Despesas</h2>
+                <p class="tip">R$ {{ total_despesa }}</p>
+              </div>
+              <div class="card green">
+                  <h2>P/L Total de Carteira</h2>
+                <p class="tip">R$ {{ total_perda_lucro }}</p>
+              </div>
             </div>
         </div>
 
